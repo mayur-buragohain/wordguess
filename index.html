@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Guess Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            font-family: 'Open Sans', Arial, sans-serif; 
+            text-align: center; 
+            background-color: black; 
+            color: white;
+            margin: 0;
+            padding-bottom: 20vh;
+        }
+        .header {
+            position: relative;
+            padding: 10px;
+        }
+        .help-icon {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px;
+            cursor: pointer;
+            border-radius: 50%;
+            font-size: clamp(16px, 5vw, 24px);
+            width: clamp(36px, 10vw, 48px);
+            height: clamp(36px, 10vw, 48px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .help-icon:hover { background-color: #45a049; }
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+            width: 90%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 5px 0;
+            width: 100%;
+            font-family: 'Montserrat', Arial, sans-serif;
+        }
+        .letter-box {
+            width: clamp(40px, 10vw, 50px);
+            height: clamp(40px, 10vw, 50px);
+            text-align: center;
+            font-size: clamp(20px, 6vw, 28px);
+            margin: 0 5px;
+            text-transform: uppercase;
+            background-color: black;
+            color: #ffffff;
+            border: 1px solid #818181;
+            caret-color: transparent;
+            border-radius: 30px;
+            font-weight: 700;
+            font-family: 'Montserrat', Arial, sans-serif;
+        }
+        .circle {
+            width: clamp(28px, 7vw, 35px);
+            height: clamp(28px, 7vw, 35px);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: clamp(16px, 5vw, 24px);
+            color: #333;
+            margin-left: 10px;
+            visibility: hidden;
+            font-family: 'Montserrat', Arial, sans-serif;
+        }
+        .green { border: 3px solid green; }
+        .yellow { border: 3px solid yellow; }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            overflow-y: auto;
+        }
+        .modal-content {
+            background-color: white;
+            color: black;
+            padding: 20px;
+            border-radius: 10px;
+            width: 80%;
+            max-width: 400px;
+            text-align: left;
+            font-size: clamp(14px, 4vw, 18px);
+        }
+        .close-btn {
+            float: right;
+            font-size: clamp(18px, 6vw, 24px);
+            cursor: pointer;
+        }
+        h1 { 
+            font-size: clamp(24px, 8vw, 36px); 
+            font-family: 'Montserrat', Arial, sans-serif; 
+            font-weight: 600; 
+        }
+        p { font-size: clamp(14px, 4vw, 18px); }
+        #result { font-size: clamp(16px, 5vw, 20px); }
+        .error-popup {
+            position: fixed;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #ffffff;
+            color: black;
+            padding: 15px 25px;
+            border-radius: 10px;
+            font-size: clamp(14px, 4vw, 18px);
+            font-family: 'Open Sans', Arial, sans-serif;
+            font-weight: 700;
+            z-index: 1000;
+            animation: slideIn 0.5s ease-out forwards, fadeOut 0.5s ease-in 2.5s forwards;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translate(-50%, -20px); }
+            to { opacity: 1; transform: translate(-50%, 0); }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+    </style>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="themes.js"></script>
+</head>
+<body>
+    <div class="header">
+        <h1>Word Guess Game</h1>
+        <p>Guess the 4-letter word!</p>
+        <button class="help-icon">💡</button>
+    </div>
+    <div class="game-container" id="game-board"></div>
+    <div class="result" id="result"></div>
+    <div class="modal" id="help-modal">
+        <div class="modal-content">
+            <span class="close-btn">×</span>
+            <h2>How to Play</h2>
+            <p>1. Guess a 4-letter word in 8 tries.</p>
+            <p>2. Type your word, press Enter to submit.</p>
+            <p>3. Green circle: Correct letters in right spots.</p>
+            <p>4. Yellow circle: Correct letters in wrong spots.</p>
+            <p>5. Use Backspace to edit your guess.</p>
+            <p>Win by guessing the word!</p>
+        </div>
+    </div>
+
+    <script>        
+        async function generate_today_word() {
+            const allWords = Object.values(themes).flat(); // Flatten all theme arrays into one
+            
+            while (true) {
+                const randomIndex = Math.floor(Math.random() * allWords.length);
+                const word = allWords[randomIndex];
+                
+                // Check 1: 4 letters
+                if (word.length !== 4) continue;
+                
+                // Check 2: No repeating letters
+                const letterSet = new Set(word.split(""));
+                if (letterSet.size !== 4) continue;
+                
+                // Check 3: No lowercase (all uppercase)
+                if (word !== word.toUpperCase()) continue;
+                
+                // Check 4: Valid word using validateWord
+                const isValid = await validateWord(word);
+                if (isValid) {
+                    console.log(word);
+                    return word
+                };
+            }
+        }
+
+        let finalWord; // Declare without initializing
+        let currentRow = 0;
+        const maxTries = 8;
+        
+        function createBoard() {
+            for (let i = 0; i < maxTries; i++) {
+                let row = $("<div class='row'></div>");
+                for (let j = 0; j < 4; j++) {
+                    row.append("<input type='text' class='letter-box' maxlength='1'>");
+                }
+                row.append("<div class='circle green'>0</div>");
+                row.append("<div class='circle yellow'>0</div>");
+                $("#game-board").append(row);
+            }
+            updateCirclesVisibility();
+            $(".row").eq(0).find(".letter-box").first().focus();
+        }
+        
+        function updateCirclesVisibility() {
+            $(".row").each(function(index) {
+                let inputs = $(this).find(".letter-box");
+                let circles = $(this).find(".circle");
+                if (index < currentRow || index === currentRow) {
+                    circles.css("visibility", "visible");
+                } else {
+                    circles.css("visibility", "hidden");
+                }
+            });
+        }
+        
+        function showErrorPopup(message) {
+            const $popup = $("<div class='error-popup'></div>").text(message);
+            $("body").append($popup);
+            setTimeout(() => $popup.remove(), 3000);
+        }
+        
+        $(document).ready(async function() {
+            finalWord = await generate_today_word(); // Set finalWord after generation
+            createBoard();
+            $(".row").eq(0).find(".letter-box").first().focus();
+            $(".letter-box").on("input", function() {
+                if ($(this).val().length === 1 && !$(this).prop("disabled")) {
+                    let nextBox = $(this).next(".letter-box");
+                    if (nextBox.length) nextBox.focus();
+                }
+            });
+            $(document).on("keydown", function(event) {
+                if (currentRow >= maxTries) return;
+                
+                let activeElement = $(document.activeElement);
+                if (!activeElement.hasClass("letter-box") || activeElement.prop("disabled")) return;
+
+                if (event.key === "Enter") {
+                    processLastFilledRow();
+                } else if (event.key === "Backspace") {
+                    if (activeElement.val().length > 0) {
+                        activeElement.val("");
+                    } else {
+                        let prevBox = activeElement.prev(".letter-box");
+                        if (prevBox.length && !prevBox.prop("disabled")) {
+                            prevBox.val("");
+                            prevBox.focus();
+                        }
+                    }
+                }
+            });
+
+            $(".help-icon").on("click", function() {
+                $("#help-modal").css("display", "flex");
+            });
+            $(".close-btn").on("click", function() {
+                $("#help-modal").css("display", "none");
+            });
+            $("#help-modal").on("click", function(event) {
+                if (event.target === this) $("#help-modal").css("display", "none");
+            });
+        });
+        
+        function processLastFilledRow() {
+            let lastFilledRow = -1;
+            $(".row").each(function(index) {
+                let inputs = $(this).find(".letter-box");
+                let word = "";
+                inputs.each(function() { word += $(this).val().toUpperCase(); });
+                if (word.length === 4 && !inputs.prop("disabled")) {
+                    lastFilledRow = index;
+                }
+            });
+
+            if (lastFilledRow === -1) {
+                showErrorPopup("Please fill a row with 4 letters.");
+                return;
+            }
+
+            let rowInputs = $(".row").eq(lastFilledRow).find(".letter-box");
+            let guessedWord = "";
+            rowInputs.each(function() { guessedWord += $(this).val().toUpperCase(); });
+
+            // Check for repeating letters
+            const letterSet = new Set(guessedWord.split(""));
+            if (letterSet.size !== 4) {
+                showErrorPopup("Word cannot have repeating letters!");
+                return;
+            }
+
+            validateWord(guessedWord).then(isValid => {
+                if (!isValid) {
+                    showErrorPopup("Invalid word! Try again.");
+                    return;
+                }
+                checkGuess(guessedWord, lastFilledRow);
+                rowInputs.prop("disabled", true);
+                currentRow++;
+                updateCirclesVisibility();
+                if (currentRow < maxTries) {
+                    $(".row").eq(currentRow).find(".letter-box").first().focus();
+                }
+            });
+        }
+        
+        function validateWord(word) {
+            return fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`)
+                .then(response => response.json())
+                .then(data => Array.isArray(data) && data.length > 0)
+                .catch(() => false);
+        }
+        
+        function checkGuess(guessedWord, rowIndex) {
+            let correctPosition = 0, wrongPosition = 0;
+            let finalArray = finalWord.split("");
+            let guessedArray = guessedWord.split("");
+            
+            for (let i = 0; i < 4; i++) {
+                if (guessedArray[i] === finalArray[i]) {
+                    correctPosition++;
+                    finalArray[i] = null;
+                }
+            }
+            
+            for (let i = 0; i < 4; i++) {
+                if (guessedArray[i] !== finalWord[i] && finalArray.includes(guessedArray[i])) {
+                    wrongPosition++;
+                    finalArray[finalArray.indexOf(guessedArray[i])] = null;
+                }
+            }
+            
+            let rowCircles = $(".row").eq(rowIndex).find(".circle");
+            rowCircles.eq(0).text(correctPosition);
+            rowCircles.eq(1).text(wrongPosition);
+            
+            if (correctPosition === 4) {
+                $("#result").text("Congratulations! You guessed the word!");
+            } else if (currentRow >= maxTries) {
+                $("#result").text("Game Over! The word was " + finalWord);
+            }
+        }
+    </script>
+</body>
+</html>
