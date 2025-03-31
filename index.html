@@ -212,18 +212,20 @@
         let finalWord;
         let currentRow = 0;
         const maxTries = 8;
-        const guessedWords = []; // Track guessed words
+        const guessedWords = [];
         
         function createBoard() {
             for (let i = 0; i < maxTries; i++) {
                 let row = $("<div class='row'></div>");
                 for (let j = 0; j < 4; j++) {
-                    row.append("<input type='text' class='letter-box' maxlength='1'>");
+                    row.append("<input type='text' class='letter-box' maxlength='1' disabled>"); // All disabled initially
                 }
                 row.append("<div class='circle green'>0</div>");
                 row.append("<div class='circle yellow'>0</div>");
                 $("#game-board").append(row);
             }
+            // Enable first row
+            $(".row").eq(0).find(".letter-box").prop("disabled", false);
             updateCirclesVisibility();
             $(".row").eq(0).find(".letter-box").first().focus();
         }
@@ -256,12 +258,34 @@
             finalWord = await generate_today_word();
             createBoard();
             $(".row").eq(0).find(".letter-box").first().focus();
+
             $(".letter-box").on("input", function() {
                 if ($(this).val().length === 1 && !$(this).prop("disabled")) {
                     let nextBox = $(this).next(".letter-box");
                     if (nextBox.length) nextBox.focus();
                 }
             });
+
+            $("#game-board").on("click", function(event) {
+                if (currentRow >= maxTries || $(".letter-box").first().prop("disabled")) return;
+                
+                const activeRow = $(".row").eq(currentRow);
+                const inputs = activeRow.find(".letter-box");
+                
+                if ($(event.target).is(".letter-box") && $(event.target).closest(".row").index() === currentRow) {
+                    return;
+                }
+
+                let focusIndex = 0;
+                inputs.each(function(index) {
+                    if ($(this).val() === "") {
+                        focusIndex = index;
+                        return false;
+                    }
+                });
+                inputs.eq(focusIndex).focus();
+            });
+
             $(document).on("keydown", function(event) {
                 if (currentRow >= maxTries) return;
                 
@@ -334,10 +358,11 @@
                 checkGuess(guessedWord, lastFilledRow);
                 rowInputs.prop("disabled", true);
                 currentRow++;
-                updateCirclesVisibility();
                 if (currentRow < maxTries) {
+                    $(".row").eq(currentRow).find(".letter-box").prop("disabled", false); // Enable next row
                     $(".row").eq(currentRow).find(".letter-box").first().focus();
                 }
+                updateCirclesVisibility();
             });
         }
         
