@@ -134,9 +134,28 @@
             z-index: 1000;
             animation: slideIn 0.5s ease-out forwards, fadeOut 0.5s ease-in 2.5s forwards;
         }
+        .success-popup {
+            position: fixed;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #4CAF50;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            font-size: clamp(14px, 4vw, 18px);
+            font-family: 'Open Sans', Arial, sans-serif;
+            font-weight: 700;
+            z-index: 1000;
+            animation: popIn 0.5s ease-out forwards, fadeOut 0.5s ease-in 2.5s forwards;
+        }
         @keyframes slideIn {
             from { opacity: 0; transform: translate(-50%, -20px); }
             to { opacity: 1; transform: translate(-50%, 0); }
+        }
+        @keyframes popIn {
+            from { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+            to { opacity: 1; transform: translate(-50%, 0) scale(1); }
         }
         @keyframes fadeOut {
             from { opacity: 1; }
@@ -169,34 +188,31 @@
 
     <script>        
         async function generate_today_word() {
-            const allWords = Object.values(themes).flat(); // Flatten all theme arrays into one
+            const allWords = Object.values(themes).flat();
             
             while (true) {
                 const randomIndex = Math.floor(Math.random() * allWords.length);
                 const word = allWords[randomIndex];
                 
-                // Check 1: 4 letters
                 if (word.length !== 4) continue;
                 
-                // Check 2: No repeating letters
                 const letterSet = new Set(word.split(""));
                 if (letterSet.size !== 4) continue;
                 
-                // Check 3: No lowercase (all uppercase)
                 if (word !== word.toUpperCase()) continue;
                 
-                // Check 4: Valid word using validateWord
                 const isValid = await validateWord(word);
                 if (isValid) {
                     console.log(word);
-                    return word
-                };
+                    return word;
+                }
             }
         }
 
-        let finalWord; // Declare without initializing
+        let finalWord;
         let currentRow = 0;
         const maxTries = 8;
+        const guessedWords = []; // Track guessed words
         
         function createBoard() {
             for (let i = 0; i < maxTries; i++) {
@@ -230,8 +246,14 @@
             setTimeout(() => $popup.remove(), 3000);
         }
         
+        function showSuccessPopup(message) {
+            const $popup = $("<div class='success-popup'></div>").text(message);
+            $("body").append($popup);
+            setTimeout(() => $popup.remove(), 3000);
+        }
+        
         $(document).ready(async function() {
-            finalWord = await generate_today_word(); // Set finalWord after generation
+            finalWord = await generate_today_word();
             createBoard();
             $(".row").eq(0).find(".letter-box").first().focus();
             $(".letter-box").on("input", function() {
@@ -292,10 +314,14 @@
             let guessedWord = "";
             rowInputs.each(function() { guessedWord += $(this).val().toUpperCase(); });
 
-            // Check for repeating letters
             const letterSet = new Set(guessedWord.split(""));
             if (letterSet.size !== 4) {
                 showErrorPopup("Word cannot have repeating letters!");
+                return;
+            }
+
+            if (guessedWords.includes(guessedWord)) {
+                showErrorPopup("You already tried this word!");
                 return;
             }
 
@@ -304,6 +330,7 @@
                     showErrorPopup("Invalid word! Try again.");
                     return;
                 }
+                guessedWords.push(guessedWord);
                 checkGuess(guessedWord, lastFilledRow);
                 rowInputs.prop("disabled", true);
                 currentRow++;
@@ -345,7 +372,8 @@
             rowCircles.eq(1).text(wrongPosition);
             
             if (correctPosition === 4) {
-                $("#result").text("Congratulations! You guessed the word!");
+                showSuccessPopup("Congratulations! You guessed the word!");
+                $(".letter-box").prop("disabled", true);
             } else if (currentRow >= maxTries) {
                 $("#result").text("Game Over! The word was " + finalWord);
             }
